@@ -1,6 +1,13 @@
 import React, { useState } from "react";
 import { X, Mail, Lock, User, Shield, AlertCircle, ArrowRight } from "lucide-react";
-import { UserProfile } from "../types";
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  provider: "email" | "google";
+  joinedAt: number;
+}
 
 interface AuthModalProps {
   isOpen: boolean;

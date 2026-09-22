@@ -6,7 +6,7 @@ import { ScanHistoryDrawer } from "./components/ScanHistoryDrawer";
 import { MentorGuideModal } from "./components/MentorGuideModal";
 import { EducationalBanner } from "./components/EducationalBanner";
 import { AuthModal } from "./components/AuthModal";
-import { ScanResult, UserProfile } from "./types";
+import { ScanResult } from "./types";
 import { ShieldCheck, ShieldAlert, Sparkles, Terminal, AlertTriangle } from "lucide-react";
 
 const STORAGE_KEY = "scamshield_scan_history_v1";
@@ -20,7 +20,9 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [user, setUser] = useState<UserProfile | null>(null);
+  // UserProfile is not exported by ./types; keep the session value compatible
+  // with the auth component until a shared profile type is introduced.
+  const [user, setUser] = useState<any>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function App() {
     }
   }, []);
 
-  const handleLoginSuccess = (loggedInUser: UserProfile) => {
+  const handleLoginSuccess = (loggedInUser: any) => {
     setUser(loggedInUser);
     try {
       localStorage.setItem(USER_KEY, JSON.stringify(loggedInUser));
