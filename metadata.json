@@ -1,0 +1,6 @@
+{
+  "name": "ScamShield",
+  "description": "AI Fake Offer Letter & Phishing Inspector - Real-time scam threat index analyzer detecting fake appointment letters, equipment payment traps, and recruitment phishing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
