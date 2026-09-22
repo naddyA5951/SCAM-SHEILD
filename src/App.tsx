@@ -217,7 +217,7 @@ export default function App() {
         isOpen={isHistoryOpen}
         history={history}
         onClose={() => setIsHistoryOpen(false)}
-        onSelectResult={(item) => {
+        onSelectResult={(item: ScanResult) => {
           setActiveResult(item);
           setIsHistoryOpen(false);
           const el = document.getElementById("results-dashboard-section");
