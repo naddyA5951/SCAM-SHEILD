@@ -1,74 +1,72 @@
-export type RiskLevel = 
-  | 'Low Risk'
-  | 'Mild Risk'
-  | 'Moderate Risk'
-  | 'High Risk'
-  | 'Very High Risk';
+export type ThreatLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
-export type Severity = 'critical' | 'high' | 'medium' | 'low';
-
-export type ThreatCategory = 
-  | 'payment' 
-  | 'urgency' 
-  | 'identity' 
-  | 'communication' 
-  | 'compensation';
-
-export interface RedFlag {
-  id: string;
+export interface ScamSignal {
+  category: 'IMPERSONATION' | 'FINANCIAL_TRAP' | 'SUSPICIOUS_DOMAIN' | 'UNREALISTIC_OFFER' | 'PRESSURE_URGENCY' | 'COMMUNICATION_ANOMALY';
   title: string;
-  severity: Severity;
-  category: ThreatCategory;
-  evidence: string;
-  explanation: string;
+  description: string;
+  severity: ThreatLevel;
+  quote?: string;
 }
 
-export interface PositiveSignal {
-  id: string;
-  title: string;
-  evidence: string;
-  explanation: string;
-}
-
-export interface DomainIntelligence {
-  url: string;
+export interface DomainAnalysis {
   domain: string;
-  isHttps: boolean;
-  protocol: string;
-  tld: string;
-  isSuspiciousTld: boolean;
-  isIpHost: boolean;
-  subdomainCount: number;
-  brandMismatch: boolean;
-  targetedBrand?: string;
-  riskLevel: 'safe' | 'suspicious' | 'dangerous';
-  heuristicNotes: string[];
+  isLookalike: boolean;
+  targetBrand?: string;
+  tldRisk: 'SAFE' | 'QUESTIONABLE' | 'SUSPICIOUS';
+  ageEstimate?: string;
+  similarityScore?: number;
+  suspiciousCharacteristics: string[];
 }
 
-export interface ThreatBreakdown {
-  paymentRisk: number;       // 0-100
-  identitySpoofing: number;  // 0-100
-  pressureUrgency: number;   // 0-100
-  unrealisticTerms: number;  // 0-100
+export interface FinancialCheck {
+  hasPaymentRequest: boolean;
+  hasChequeOverpaymentTrap: boolean;
+  hasEquipmentDepositFee: boolean;
+  hasCryptoRequirement: boolean;
+  requestedAmount?: string;
+  paymentMethods: string[];
+}
+
+export interface RecommendedAction {
+  id: string;
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'INFORMATIONAL';
+  title: string;
+  detail: string;
+  actionText?: string;
 }
 
 export interface ScanResult {
   id: string;
   timestamp: number;
-  scanType: 'text' | 'url';
-  inputSnippet: string;
-  score: number;             // 0 - 100
-  riskLevel: RiskLevel;
-  summary: string;
-  redFlags: RedFlag[];
-  positiveSignals: PositiveSignal[];
-  domainIntelligence?: DomainIntelligence;
-  breakdown: ThreatBreakdown;
-  recommendations: string[];
-  engine: string;
+  targetType: 'TEXT' | 'URL' | 'DOCUMENT';
+  targetSummary: string;
+  scamScore: number; // 0 to 100
+  threatLevel: ThreatLevel;
+  verdictTitle: string;
+  verdictSummary: string;
+  signals: ScamSignal[];
+  domainAnalysis?: DomainAnalysis;
+  financialCheck: FinancialCheck;
+  recommendedActions: RecommendedAction[];
+  rawAnalysisNotes?: string[];
+  safeNextSteps: string[];
 }
 
-export interface ScanRequest {
-  type: 'text' | 'url';
-  content: string;
+export interface ScanHistoryItem {
+  id: string;
+  timestamp: number;
+  targetType: 'TEXT' | 'URL' | 'DOCUMENT';
+  previewText: string;
+  scamScore: number;
+  threatLevel: ThreatLevel;
+  signalsCount: number;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  provider: 'google' | 'email';
+  joinedAt: number;
 }
