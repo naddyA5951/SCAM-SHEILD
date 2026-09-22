@@ -1,0 +1,300 @@
+import React, { useEffect, useRef } from "react";
+
+interface Point3D {
+  x: number;
+  y: number;
+  z: number;
+  originX: number;
+  originY: number;
+  originZ: number;
+  vx: number;
+  vy: number;
+  vz: number;
+}
+
+export const CyberBackground3D: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const mouse = {
+      x: width / 2,
+      y: height / 2,
+      targetX: width / 2,
+      targetY: height / 2,
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mouse.targetX = e.clientX;
+      mouse.targetY = e.clientY;
+    };
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    window.addEventListener("resize", handleResize);
+
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const baseVertices = [
+      [-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0],
+      [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi],
+      [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1]
+    ];
+
+    const radius = Math.min(width, height) * 0.22;
+    const polyNodes: Point3D[] = baseVertices.map(([x, y, z]) => {
+      const len = Math.hypot(x, y, z);
+      const px = (x / len) * radius;
+      const py = (y / len) * radius;
+      const pz = (z / len) * radius;
+      return {
+        x: px, y: py, z: pz,
+        originX: px, originY: py, originZ: pz,
+        vx: 0, vy: 0, vz: 0,
+      };
+    });
+
+    const additionalNodes: Point3D[] = [];
+    for (let i = 0; i < polyNodes.length; i++) {
+      for (let j = i + 1; j < polyNodes.length; j++) {
+        const dx = polyNodes[i].x - polyNodes[j].x;
+        const dy = polyNodes[i].y - polyNodes[j].y;
+        const dz = polyNodes[i].z - polyNodes[j].z;
+        const dist = Math.hypot(dx, dy, dz);
+        if (dist < radius * 1.2) {
+          const midX = (polyNodes[i].x + polyNodes[j].x) * 0.5;
+          const midY = (polyNodes[i].y + polyNodes[j].y) * 0.5;
+          const midZ = (polyNodes[i].z + polyNodes[j].z) * 0.5;
+          const len = Math.hypot(midX, midY, midZ);
+          additionalNodes.push({
+            x: (midX / len) * radius * 1.05,
+            y: (midY / len) * radius * 1.05,
+            z: (midZ / len) * radius * 1.05,
+            originX: (midX / len) * radius * 1.05,
+            originY: (midY / len) * radius * 1.05,
+            originZ: (midZ / len) * radius * 1.05,
+            vx: 0, vy: 0, vz: 0,
+          });
+        }
+      }
+    }
+    const allMeshNodes = [...polyNodes, ...additionalNodes.slice(0, 16)];
+
+    const PARTICLE_COUNT = 65;
+    const particles: { x: number; y: number; z: number; size: number; alpha: number; speed: number }[] = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: (Math.random() - 0.5) * width * 1.8,
+        y: (Math.random() - 0.5) * height * 1.8,
+        z: Math.random() * 800 - 200,
+        size: Math.random() * 2 + 1,
+        alpha: Math.random() * 0.6 + 0.2,
+        speed: Math.random() * 0.4 + 0.2,
+      });
+    }
+
+    const gridLinesCount = 18;
+    const gridCols = 22;
+    let angleX = 0;
+    let angleY = 0;
+    let scanLine = 0;
+
+    const render = () => {
+      mouse.x += (mouse.targetX - mouse.x) * 0.05;
+      mouse.y += (mouse.targetY - mouse.y) * 0.05;
+
+      ctx.fillStyle = "#0c1322";
+      ctx.fillRect(0, 0, width, height);
+
+      const grad1 = ctx.createRadialGradient(
+        mouse.x, mouse.y, 10,
+        mouse.x, mouse.y, width * 0.45
+      );
+      grad1.addColorStop(0, "rgba(6, 182, 212, 0.16)");
+      grad1.addColorStop(0.5, "rgba(59, 130, 246, 0.08)");
+      grad1.addColorStop(1, "rgba(12, 19, 34, 0)");
+      ctx.fillStyle = grad1;
+      ctx.fillRect(0, 0, width, height);
+
+      const grad2 = ctx.createRadialGradient(
+        width * 0.85, height * 0.15, 20,
+        width * 0.85, height * 0.15, width * 0.35
+      );
+      grad2.addColorStop(0, "rgba(16, 185, 129, 0.12)");
+      grad2.addColorStop(1, "rgba(12, 19, 34, 0)");
+      ctx.fillStyle = grad2;
+      ctx.fillRect(0, 0, width, height);
+
+      const focalLength = 480;
+      const mouseOffsetX = (mouse.x - width / 2) * 0.0006;
+      const mouseOffsetY = (mouse.y - height / 2) * 0.0006;
+
+      angleY += 0.0035;
+      angleX = Math.sin(angleY * 0.8) * 0.25 + mouseOffsetY * 0.8;
+      const rotY = angleY + mouseOffsetX * 1.2;
+
+      const cosY = Math.cos(rotY);
+      const sinY = Math.sin(rotY);
+      const cosX = Math.cos(angleX);
+      const sinX = Math.sin(angleX);
+
+      ctx.save();
+      const horizonY = height * 0.65;
+      ctx.lineWidth = 1;
+      scanLine = (scanLine + 0.8) % (height * 0.35);
+
+      for (let i = 0; i < gridLinesCount; i++) {
+        const p = Math.pow(i / gridLinesCount, 2.2);
+        const y = horizonY + p * (height - horizonY);
+        const alpha = p * 0.22;
+        ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      for (let c = 0; c <= gridCols; c++) {
+        const xRatio = (c - gridCols / 2) / (gridCols / 2);
+        const startX = width / 2 + xRatio * (width * 0.12);
+        const endX = width / 2 + xRatio * (width * 0.75);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.08)";
+        ctx.beginPath();
+        ctx.moveTo(startX, horizonY);
+        ctx.lineTo(endX, height);
+        ctx.stroke();
+      }
+
+      const laserY = horizonY + scanLine;
+      const laserGrad = ctx.createLinearGradient(0, laserY - 12, 0, laserY + 12);
+      laserGrad.addColorStop(0, "rgba(6, 182, 212, 0)");
+      laserGrad.addColorStop(0.5, "rgba(6, 182, 212, 0.22)");
+      laserGrad.addColorStop(1, "rgba(6, 182, 212, 0)");
+      ctx.fillStyle = laserGrad;
+      ctx.fillRect(0, laserY - 12, width, 24);
+      ctx.restore();
+
+      for (const p of particles) {
+        p.z -= p.speed * 1.5;
+        if (p.z < -focalLength + 50) p.z = 700;
+
+        const scale = focalLength / (focalLength + p.z);
+        const px = width / 2 + (p.x + mouseOffsetX * 150) * scale;
+        const py = height / 2 + (p.y + mouseOffsetY * 150) * scale;
+
+        if (px >= 0 && px <= width && py >= 0 && py <= height) {
+          ctx.beginPath();
+          ctx.arc(px, py, p.size * scale, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(125, 211, 252, ${p.alpha * scale})`;
+          ctx.fill();
+        }
+      }
+
+      const centerX = width > 1024 ? width * 0.76 : width * 0.5;
+      const centerY = height * 0.38;
+
+      const projected: { sx: number; sy: number; z: number; index: number }[] = [];
+
+      for (let i = 0; i < allMeshNodes.length; i++) {
+        const node = allMeshNodes[i];
+        const x1 = node.originX * cosY - node.originZ * sinY;
+        const z1 = node.originZ * cosY + node.originX * sinY;
+        const y2 = node.originY * cosX - z1 * sinX;
+        const z2 = z1 * cosX + node.originY * sinX;
+
+        const depth = z2 + focalLength + 150;
+        const scale = focalLength / depth;
+        const sx = centerX + x1 * scale;
+        const sy = centerY + y2 * scale;
+
+        projected.push({ sx, sy, z: z2, index: i });
+      }
+
+      projected.sort((a, b) => a.z - b.z);
+
+      for (let i = 0; i < projected.length; i++) {
+        for (let j = i + 1; j < projected.length; j++) {
+          const p1 = projected[i];
+          const p2 = projected[j];
+          const dx = p1.sx - p2.sx;
+          const dy = p1.sy - p2.sy;
+          const dist2D = Math.hypot(dx, dy);
+
+          const maxLinkDist = radius * 0.7;
+          if (dist2D < maxLinkDist) {
+            const depthFactor = ((p1.z + p2.z) / 2 + radius) / (2 * radius);
+            const edgeAlpha = Math.max(0.04, Math.min(0.45, (1 - dist2D / maxLinkDist) * depthFactor * 0.5));
+            ctx.beginPath();
+            ctx.moveTo(p1.sx, p1.sy);
+            ctx.lineTo(p2.sx, p2.sy);
+            ctx.strokeStyle = `rgba(34, 211, 238, ${edgeAlpha})`;
+            ctx.lineWidth = depthFactor > 0.6 ? 1.5 : 0.8;
+            ctx.stroke();
+          }
+        }
+      }
+
+      for (const p of projected) {
+        const depthFactor = (p.z + radius) / (2 * radius);
+        const nodeSize = Math.max(1.8, 4.5 * depthFactor);
+        const alpha = Math.max(0.2, depthFactor);
+
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, nodeSize, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(56, 189, 248, ${alpha})`;
+        ctx.shadowColor = "rgba(6, 182, 212, 0.8)";
+        ctx.shadowBlur = depthFactor > 0.6 ? 12 : 2;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      const corePulse = Math.sin(angleY * 2.5) * 6 + 18;
+      const coreGrad = ctx.createRadialGradient(
+        centerX, centerY, 2,
+        centerX, centerY, corePulse * 3
+      );
+      coreGrad.addColorStop(0, "rgba(34, 211, 238, 0.35)");
+      coreGrad.addColorStop(0.5, "rgba(59, 130, 246, 0.15)");
+      coreGrad.addColorStop(1, "rgba(12, 19, 34, 0)");
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, corePulse * 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = "10px monospace";
+      ctx.fillStyle = "rgba(148, 163, 184, 0.4)";
+      ctx.fillText(`3D_GRID: ACTIVE // ROT_Y: ${(rotY % (Math.PI * 2)).toFixed(2)} rad`, 24, height - 36);
+      ctx.fillText(`THREAT_PROBE: ONLINE // PIVOT: [${mouse.x.toFixed(0)}, ${mouse.y.toFixed(0)}]`, 24, height - 20);
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 pointer-events-none z-0 w-full h-full opacity-90 transition-opacity duration-700"
+      style={{ display: "block" }}
+    />
+  );
+};
