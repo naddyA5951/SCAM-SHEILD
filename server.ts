@@ -7,11 +7,13 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Safe resolution of directory path for both ESM development and bundled CJS production
+const serverDir = typeof __dirname !== "undefined" 
+  ? __dirname 
+  : (typeof import.meta !== "undefined" && import.meta.url ? path.dirname(fileURLToPath(import.meta.url)) : process.cwd());
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: "1mb" }));
 
@@ -105,17 +107,11 @@ function isPrivateOrLocalIp(hostname: string): boolean {
   if (ipMatch) {
     const p1 = parseInt(ipMatch[1], 10);
     const p2 = parseInt(ipMatch[2], 10);
-    // 10.0.0.0/8
     if (p1 === 10) return true;
-    // 172.16.0.0/12
     if (p1 === 172 && p2 >= 16 && p2 <= 31) return true;
-    // 192.168.0.0/16
     if (p1 === 192 && p2 === 168) return true;
-    // 169.254.0.0/16 (Link-local)
     if (p1 === 169 && p2 === 254) return true;
-    // 127.0.0.0/8
     if (p1 === 127) return true;
-    // 0.0.0.0/8
     if (p1 === 0) return true;
   }
 
