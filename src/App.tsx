@@ -5,10 +5,12 @@ import { ResultsDashboard } from "./components/ResultsDashboard";
 import { ScanHistoryDrawer } from "./components/ScanHistoryDrawer";
 import { MentorGuideModal } from "./components/MentorGuideModal";
 import { EducationalBanner } from "./components/EducationalBanner";
-import { ScanResult } from "./types";
+import { AuthModal } from "./components/AuthModal";
+import { ScanResult, UserProfile } from "./types";
 import { ShieldCheck, ShieldAlert, Sparkles, Terminal, AlertTriangle } from "lucide-react";
 
 const STORAGE_KEY = "scamshield_scan_history_v1";
+const USER_KEY = "scamshield_user_session_v1";
 
 export default function App() {
   const [activeResult, setActiveResult] = useState<ScanResult | null>(null);
@@ -17,74 +19,89 @@ export default function App() {
   const [history, setHistory] = useState<ScanResult[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // Load history from localStorage on startup
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      const savedHistory = localStorage.getItem(STORAGE_KEY);
+      if (savedHistory) {
+        const parsed = JSON.parse(savedHistory);
         if (Array.isArray(parsed)) {
           setHistory(parsed);
         }
       }
+
+      const savedUser = localStorage.getItem(USER_KEY);
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
     } catch (err) {
-      console.warn("Failed to read scan history from localStorage", err);
+      console.warn("Failed to read cached data from localStorage", err);
     }
   }, []);
+
+  const handleLoginSuccess = (loggedInUser: UserProfile) => {
+    setUser(loggedInUser);
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(loggedInUser));
+    } catch (err) {
+      console.warn("Failed to cache user session", err);
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    try {
+      localStorage.removeItem(USER_KEY);
+    } catch (err) {
+      console.warn("Failed to clear user session", err);
+    }
+  };
 
   const saveToHistory = (newResult: ScanResult) => {
     setHistory((prev) => {
       const updated = [newResult, ...prev.filter((item) => item.id !== newResult.id)].slice(0, 25);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (err) {
-        console.warn("Failed to cache to localStorage", err);
+      } catch (e) {
+        console.warn("Failed to persist history", e);
       }
       return updated;
     });
   };
 
-  const handleClearHistory = () => {
-    setHistory([]);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (err) {
-      console.warn("Failed to clear localStorage", err);
-    }
-  };
-
   const handleScanText = async (text: string) => {
     setIsScanning(true);
     setApiError(null);
-    setScanProgressText("Analyzing linguistic red flags...");
+    setScanProgressText("Extracting red flags & payment phrases...");
 
     try {
-      const timer = setTimeout(() => {
-        setScanProgressText("Querying Gemini 3.8 Flash forensic model...");
-      }, 700);
-
       const response = await fetch("/api/scan/text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: text }),
       });
 
-      clearTimeout(timer);
-
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Scan failed with status ${response.status}`);
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server responded with HTTP ${response.status}`);
       }
 
       const data: ScanResult = await response.json();
       setActiveResult(data);
       saveToHistory(data);
-      window.scrollTo({ top: 120, behavior: "smooth" });
+
+      setTimeout(() => {
+        const resultsElem = document.getElementById("results-dashboard-section");
+        if (resultsElem) {
+          resultsElem.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
     } catch (err: any) {
-      console.error("Text scan request error:", err);
-      setApiError(err.message || "Unable to complete security scan. Please try again.");
+      console.error("Text scan error:", err);
+      setApiError(err.message || "Failed to analyze offer text. Please check your connection or retry.");
     } finally {
       setIsScanning(false);
       setScanProgressText("");
@@ -94,167 +111,131 @@ export default function App() {
   const handleScanUrl = async (url: string) => {
     setIsScanning(true);
     setApiError(null);
-    setScanProgressText("Running SSRF & Domain Security Sandbox...");
+    setScanProgressText("Probing domain infrastructure & phishing markers...");
 
     try {
-      const timer = setTimeout(() => {
-        setScanProgressText("Inspecting TLD, Brand Spoofing & Phishing markers...");
-      }, 700);
-
       const response = await fetch("/api/scan/url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
 
-      clearTimeout(timer);
-
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `URL scan failed with status ${response.status}`);
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server responded with HTTP ${response.status}`);
       }
 
       const data: ScanResult = await response.json();
       setActiveResult(data);
       saveToHistory(data);
-      window.scrollTo({ top: 120, behavior: "smooth" });
+
+      setTimeout(() => {
+        const resultsElem = document.getElementById("results-dashboard-section");
+        if (resultsElem) {
+          resultsElem.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
     } catch (err: any) {
-      console.error("URL scan request error:", err);
-      setApiError(err.message || "Unable to complete URL security scan. Please try again.");
+      console.error("URL scan error:", err);
+      setApiError(err.message || "Failed to analyze domain link. Please verify URL formatting and retry.");
     } finally {
       setIsScanning(false);
       setScanProgressText("");
     }
   };
 
-  const handleLoadPreset = (sampleIndex: number) => {
-    const sample = SAMPLE_CASES[sampleIndex];
-    if (sample.type === "text") {
-      handleScanText(sample.content);
-    } else {
-      handleScanUrl(sample.content);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
-      {/* Top Navigation */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
       <Header
         historyCount={history.length}
+        user={user}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenGuide={() => setIsGuideOpen(true)}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onLogout={handleLogout}
         onSelectDemo={() => {
-          // Scroll smoothly to scanner form
           const elem = document.getElementById("scanner-section");
-          elem?.scrollIntoView({ behavior: "smooth" });
+          if (elem) elem.scrollIntoView({ behavior: "smooth" });
         }}
       />
 
-      {/* Main Content Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
-        {/* Hero Section */}
-        <section className="text-center max-w-3xl mx-auto space-y-4 pt-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-800/80 text-cyan-300 text-xs font-mono">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>AI Fake Offer Letter & Phishing Inspector</span>
-          </div>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <EducationalBanner />
 
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-100 font-mono">
-            Don&apos;t Get Scammed <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-emerald-400 to-amber-400">
-              Before You Get Hired.
-            </span>
+        <div className="text-center max-w-3xl mx-auto space-y-3 pt-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>AI Forensic Verification + Deterministic Rule Engine</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+            Verify Job Offers Before You <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400">Pay A Single Rupee</span>
           </h1>
-
-          <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Job seekers lose millions to fake appointment letters, laptop equipment fee traps, and lookalike phishing portals. Paste an offer or enter a link to calculate a dynamic <strong>Scam Threat Index (0–100%)</strong>.
+          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+            Detect laptop deposit traps, spoofed corporate domains, advance fee fraud, and suspicious Telegram recruiters using dual-engine cybersecurity intelligence.
           </p>
+        </div>
 
-          {/* Quick Stats Badges */}
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-            <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
-              Deterministic Rules Engine
-            </span>
-            <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
-              Gemini 3.8 Flash Hybrid AI
-            </span>
-            <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
-              SSRF & Domain Sandbox
-            </span>
-          </div>
-        </section>
-
-        {/* Global Error Banner */}
         {apiError && (
-          <div className="max-w-2xl mx-auto flex items-center justify-between p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-xs text-rose-300">
-            <div className="flex items-center gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>{apiError}</span>
+          <div className="max-w-4xl mx-auto p-4 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-rose-200 flex items-start gap-3 shadow-lg">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs sm:text-sm">
+              <p className="font-semibold text-rose-300">Scan Warning</p>
+              <p className="mt-0.5 text-rose-300/90">{apiError}</p>
             </div>
             <button
               onClick={() => setApiError(null)}
-              className="text-xs font-mono font-bold text-rose-400 hover:text-rose-200 ml-4"
+              className="text-xs text-rose-400 hover:text-rose-200 font-mono underline"
             >
               Dismiss
             </button>
           </div>
         )}
 
-        {/* Interactive Scanner or Results View */}
-        <section id="scanner-section" className="max-w-4xl mx-auto">
-          {activeResult ? (
-            <ResultsDashboard
-              result={activeResult}
-              onReset={() => setActiveResult(null)}
-            />
-          ) : (
-            <ScannerForm
-              onScanText={handleScanText}
-              onScanUrl={handleScanUrl}
-              isScanning={isScanning}
-              scanProgressText={scanProgressText}
-            />
-          )}
-        </section>
+        <div className="max-w-4xl mx-auto">
+          <ScannerForm
+            onScanText={handleScanText}
+            onScanUrl={handleScanUrl}
+            isScanning={isScanning}
+            progressText={scanProgressText}
+          />
+        </div>
 
-        {/* Educational Briefing Banner */}
-        <section className="max-w-5xl mx-auto pt-4">
-          <EducationalBanner />
-        </section>
+        {activeResult && (
+          <div id="results-dashboard-section" className="pt-4 scroll-mt-20">
+            <ResultsDashboard result={activeResult} />
+          </div>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="w-full border-t border-slate-800/80 bg-slate-950 py-6 mt-12 text-center text-xs text-slate-400 font-mono">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-cyan-400" />
-            <span>ScamShield &bull; AI Fake Offer Letter & Phishing Inspector</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsGuideOpen(true)}
-              className="hover:text-cyan-400 transition-colors"
-            >
-              Mac Terminal & Architecture Guide
-            </button>
-            <span className="text-slate-700">|</span>
-            <span>Hackathon Demonstration Edition</span>
-          </div>
-        </div>
+      <footer className="border-t border-slate-900 bg-slate-950/90 py-6 text-center text-xs text-slate-400 font-mono">
+        <p>ScamShield Cyber Defense Engine • Built for Candidate Safety & Anti-Fraud Security</p>
       </footer>
 
-      {/* Modals & Slide-overs */}
       <ScanHistoryDrawer
         isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
         history={history}
-        onSelectScan={(scan) => setActiveResult(scan)}
-        onClearHistory={handleClearHistory}
+        onClose={() => setIsHistoryOpen(false)}
+        onSelectResult={(item) => {
+          setActiveResult(item);
+          setIsHistoryOpen(false);
+          const el = document.getElementById("results-dashboard-section");
+          if (el) el.scrollIntoView({ behavior: "smooth" });
+        }}
+        onClearHistory={() => {
+          setHistory([]);
+          localStorage.removeItem(STORAGE_KEY);
+        }}
       />
 
       <MentorGuideModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
+      />
+
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
       />
     </div>
   );

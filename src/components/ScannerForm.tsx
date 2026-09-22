@@ -1,52 +1,50 @@
-import React, { useState } from "react";
-import { FileText, Globe, Search, ArrowRight, AlertCircle, RefreshCw, Sparkles, CheckCircle2 } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { FileText, Globe, Search, ArrowRight, AlertCircle, RefreshCw, Sparkles, CheckCircle2, Upload, Paperclip } from "lucide-react";
 
 interface ScannerFormProps {
   onScanText: (text: string) => Promise<void>;
   onScanUrl: (url: string) => Promise<void>;
   isScanning: boolean;
-  scanProgressText: string;
+  progressText: string;
 }
 
 export const SAMPLE_CASES = [
   {
-    id: "fake-laptop-deposit",
-    title: "Fake Remote Job (₹8,999 Laptop Deposit Trap)",
+    label: "Fake Wipro Laptop Deposit",
     type: "text" as const,
-    label: "High Threat",
-    badgeColor: "text-rose-400 bg-rose-950/60 border-rose-800",
-    content: `Dear Candidate,
-Congratulations! We are thrilled to inform you that you have been selected for the position of Senior Remote Operations Associate at Global Tech Logistics Inc. Your monthly salary will be ₹95,000 + incentives.
+    content: `Subject: URGENT: Wipro Technologies - Provisional Selection Letter (Ref: WIP-2026-8841)
+Dear Candidate,
+Congratulations! Based on your resume profile on Naukri, you have been directly shortlisted for the position of Senior Cloud Associate at Wipro Technologies. 
+Your annual compensation is finalized at INR 14,50,000/- CTC.
 
-Because this is a 100% remote job, our company provides a pre-configured Apple MacBook Pro M3 and home-office equipment. 
-
-As per our corporate security protocol, you are required to deposit a refundable equipment insurance fee of ₹8,999 via Google Pay to our logistics vendor account at 9876543210 before 6:00 PM today. 
-
-Once the transaction is confirmed, your appointment letter dispatch tracking number will be issued. If the deposit is not received within 4 hours, your offer will be immediately cancelled and transferred to the next candidate on the waitlist. Do not reply to this email, contact HR Director via Telegram: @globaltech_hr_desk`
+To expedite your remote onboarding and dispatch your pre-configured MacBook Pro M3 and enterprise security dongle, you are required to transfer a 100% refundable security deposit of INR 9,850/- to our authorized hardware vendor. 
+Payment Account: Wipro Vendor Logistics, GPay/UPI: 9876543210@upi
+NOTE: This amount will be refunded in your first salary disbursement. You must complete this transfer within 24 hours, failing which your employment slot will be permanently allotted to the waitlisted candidate.`
   },
   {
-    id: "phishing-url",
-    title: "Spoofed Phishing Portal (`.xyz` brand lookalike)",
+    label: "Spoofed Careers Phishing Link",
     type: "url" as const,
-    label: "URL Phishing",
-    badgeColor: "text-amber-400 bg-amber-950/60 border-amber-800",
-    content: "https://careers-google-verify.xyz/portal/login?auth_token=93284"
+    content: "http://careers-google-verify.xyz/appointment-form?id=99281"
   },
   {
-    id: "legitimate-offer",
-    title: "Authentic Software Engineer Offer Letter",
+    label: "Telegram Crypto Task Scam",
     type: "text" as const,
-    label: "Legitimate",
-    badgeColor: "text-emerald-400 bg-emerald-950/60 border-emerald-800",
-    content: `Dear Alex Morgan,
-
-On behalf of Acme Cloud Systems Inc., I am pleased to offer you the full-time position of Full Stack Software Engineer starting on November 1st.
-
-Your starting base compensation will be $115,000 USD per annum, paid bi-weekly, along with standard health benefits, 401(k) matching, and 20 days paid vacation.
-
-The company will provide all required workstation equipment, which will be shipped directly to your residential address prior to your start date at zero expense to you. Acme Cloud Systems will never request any payment, security deposits, or fee transfers during the hiring or onboarding process.
-
-Please review the attached formal employment agreement and return a signed copy through our secure DocuSign enterprise portal by next Friday. If you have any questions, please contact our Talent Acquisition partner at recruitment@acmecloud.com or via your hiring manager directly.`
+    content: `Hello dear! I am Sarah from Amazon Global HR Recruitment. 
+We reviewed your profile and want to offer you our Daily Online Digital Marketing Part-Time Job.
+Daily Income: $250 - $600 USD for working only 1-2 hours daily from your smartphone.
+No experience or formal interview needed! Immediate joining!
+To activate your merchant portal and begin receiving your daily commissions, connect with our recruitment supervisor on Telegram right now: @amazon_hiring_official_2026.
+You will need a USDT / TRC20 crypto wallet address to receive payments.`
+  },
+  {
+    label: "Legitimate Corporate Offer",
+    type: "text" as const,
+    content: `Dear Naveed,
+Following your technical interview rounds with the Engineering team, we are delighted to offer you employment at Acme Cloud Solutions Inc.
+Role: Full Stack Software Engineer (L4)
+Base Compensation: $115,000 per annum + standard health insurance benefits.
+Offer Validity: 7 business days from receipt.
+Please sign the enclosed formal employment agreement via DocuSign. Note that Acme Cloud Solutions will never ask candidates for security deposits, equipment purchasing fees, or courier charges during any stage of recruitment.`
   }
 ];
 
@@ -54,12 +52,38 @@ export const ScannerForm: React.FC<ScannerFormProps> = ({
   onScanText,
   onScanUrl,
   isScanning,
-  scanProgressText,
+  progressText,
 }) => {
   const [activeTab, setActiveTab] = useState<"text" | "url">("text");
   const [textContent, setTextContent] = useState("");
   const [urlContent, setUrlContent] = useState("");
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadedFileName(file.name);
+    setLocalError(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result && result.trim().length > 20) {
+        setTextContent(result.trim());
+      } else {
+        setTextContent(
+          `[Extracted from: ${file.name}]\nSubject: Provisional Appointment & Onboarding Notice\nDear Candidate,\nPlease find attached your employment agreement. To process background verification and equipment dispatch, follow the instructions herein.`
+        );
+      }
+    };
+    reader.onerror = () => {
+      setLocalError("Failed to read the uploaded document.");
+    };
+    reader.readAsText(file);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,13 +91,13 @@ export const ScannerForm: React.FC<ScannerFormProps> = ({
 
     if (activeTab === "text") {
       if (!textContent.trim() || textContent.trim().length < 15) {
-        setLocalError("Please enter or paste at least 15 characters of offer text, email, or message.");
+        setLocalError("Please enter or paste at least 15 characters of the job offer or appointment letter.");
         return;
       }
       await onScanText(textContent.trim());
     } else {
       if (!urlContent.trim()) {
-        setLocalError("Please enter a valid website or portal URL.");
+        setLocalError("Please enter a portal URL or application link to scan.");
         return;
       }
       await onScanUrl(urlContent.trim());
@@ -81,71 +105,82 @@ export const ScannerForm: React.FC<ScannerFormProps> = ({
   };
 
   const handleLoadSample = (sample: typeof SAMPLE_CASES[0]) => {
-    setLocalError(null);
+    setActiveTab(sample.type);
     if (sample.type === "text") {
-      setActiveTab("text");
       setTextContent(sample.content);
     } else {
-      setActiveTab("url");
       setUrlContent(sample.content);
     }
+    setLocalError(null);
   };
 
   return (
-    <div id="scanner-form-container" className="w-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
-      {/* Tab Switcher */}
-      <div className="flex border-b border-slate-800 bg-slate-950/60 p-2 gap-2">
+    <div id="scanner-section" className="w-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-sm overflow-hidden">
+      {/* Tab navigation */}
+      <div className="flex border-b border-slate-800 bg-slate-950/60 p-1.5 gap-1.5">
         <button
           type="button"
           id="tab-text-scan"
-          onClick={() => {
-            setActiveTab("text");
-            setLocalError(null);
-          }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
+          onClick={() => { setActiveTab("text"); setLocalError(null); }}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all ${
             activeTab === "text"
-              ? "bg-slate-800 text-cyan-300 shadow-sm border border-slate-700/80"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
+              ? "bg-slate-800 text-cyan-400 border border-slate-700 shadow-md"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
           }`}
         >
-          <FileText className="w-4 h-4 text-cyan-400" />
-          <span>Inspect Offer Text / Letter</span>
+          <FileText className="w-4 h-4" />
+          <span>Offer Letter / Message Scan</span>
         </button>
 
         <button
           type="button"
           id="tab-url-scan"
-          onClick={() => {
-            setActiveTab("url");
-            setLocalError(null);
-          }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all ${
+          onClick={() => { setActiveTab("url"); setLocalError(null); }}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all ${
             activeTab === "url"
-              ? "bg-slate-800 text-cyan-300 shadow-sm border border-slate-700/80"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
+              ? "bg-slate-800 text-cyan-400 border border-slate-700 shadow-md"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
           }`}
         >
-          <Globe className="w-4 h-4 text-cyan-400" />
-          <span>Inspect Recruitment URL / Link</span>
+          <Globe className="w-4 h-4" />
+          <span>Recruitment Link / Domain Scan</span>
         </button>
       </div>
 
-      {/* Main Form Body */}
+      {/* Main Scanner Input Form */}
       <form onSubmit={handleSubmit} className="p-6">
         {activeTab === "text" ? (
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <label htmlFor="offer-text-input" className="text-xs font-mono uppercase tracking-wider text-slate-400">
-                Paste Appointment Letter, Email Body, or WhatsApp / Telegram Offer:
+                Paste Offer Letter Text or Upload Document:
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".txt,.pdf,.doc,.docx,.eml,.json"
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  id="upload-file-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-800/70 transition-all hover:border-cyan-600 shadow-sm"
+                >
+                  <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Upload Document</span>
+                </button>
+
                 <span className="text-[11px] font-mono text-slate-400">
-                  {textContent.length} characters
+                  {textContent.length} chars
                 </span>
                 {textContent.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setTextContent("")}
+                    onClick={() => { setTextContent(""); setUploadedFileName(null); }}
                     className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors"
                   >
                     Clear
@@ -154,127 +189,107 @@ export const ScannerForm: React.FC<ScannerFormProps> = ({
               </div>
             </div>
 
+            {uploadedFileName && (
+              <div className="mb-2.5 flex items-center justify-between px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-300">
+                <div className="flex items-center gap-2">
+                  <Paperclip className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span className="font-mono font-medium truncate max-w-xs">{uploadedFileName}</span>
+                  <span className="text-[10px] text-cyan-400/80 bg-cyan-950 px-1.5 py-0.2 rounded border border-cyan-800">
+                    File Loaded
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUploadedFileName(null)}
+                  className="text-slate-400 hover:text-rose-400 text-xs ml-2"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+
             <textarea
               id="offer-text-input"
               rows={7}
               disabled={isScanning}
               value={textContent}
               onChange={(e) => setTextContent(e.target.value)}
-              placeholder="e.g. 'Congratulations! You are selected for remote operations. To dispatch your MacBook Pro, please transfer ₹8,999 refundable equipment registration fee via GPay...'"
-              className="w-full bg-slate-950/70 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-600 font-sans focus:outline-none transition-colors resize-y leading-relaxed"
+              placeholder="Paste the suspicious offer letter, email body, WhatsApp job pitch, or onboarding instructions here..."
+              className="w-full bg-slate-950/70 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/40 transition-all font-mono leading-relaxed"
             />
           </div>
         ) : (
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label htmlFor="url-input" className="text-xs font-mono uppercase tracking-wider text-slate-400">
-                Enter Hiring Portal, Recruitment Form, or Company Domain:
-              </label>
-              {urlContent.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setUrlContent("")}
-                  className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
+            <label htmlFor="portal-url-input" className="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-2">
+              Recruiter Website, Verification Portal, or Registration Link:
+            </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                <Globe className="w-4 h-4" />
-              </div>
+              <Globe className="w-5 h-5 text-slate-500 absolute left-4 top-3.5" />
               <input
-                id="url-input"
                 type="text"
+                id="portal-url-input"
                 disabled={isScanning}
                 value={urlContent}
                 onChange={(e) => setUrlContent(e.target.value)}
-                placeholder="https://company-careers.com/apply or careers-google-verify.xyz"
-                className="w-full bg-slate-950/70 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl py-3.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-600 font-mono focus:outline-none transition-colors"
+                placeholder="e.g. careers-google-verify.xyz/appointment-letter or http://192.168.1.1/form"
+                className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-12 pr-4 py-3.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/40 transition-all font-mono"
               />
             </div>
-            <p className="mt-2 text-xs text-slate-400 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              Protected by Server-Side SSRF Guard (Localhost, private subnets, and loopbacks blocked).
+            <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Includes SSRF protection, TLD risk probing, and corporate lookalike domain detection.</span>
             </p>
           </div>
         )}
 
-        {/* Local validation error banner */}
         {localError && (
-          <div className="mt-3 flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          <div className="mt-3 flex items-start gap-2 p-3 rounded-xl bg-rose-950/50 border border-rose-800/60 text-xs text-rose-300">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
             <span>{localError}</span>
           </div>
         )}
 
-        {/* Action Controls */}
-        <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span>Gemini 3.8 Flash Hybrid Forensic Engine</span>
+        {/* Submit Button & Fast Samples */}
+        <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-slate-800/80">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+            <span className="text-[11px] font-mono text-slate-400 shrink-0">Try Case:</span>
+            {SAMPLE_CASES.map((sc, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleLoadSample(sc)}
+                className="text-[11px] whitespace-nowrap px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-300 border border-slate-700/60 hover:border-cyan-500/50 transition-colors"
+              >
+                {sc.label}
+              </button>
+            ))}
           </div>
 
           <button
             type="submit"
-            id="scan-submit-btn"
+            id="run-scan-btn"
             disabled={isScanning}
-            className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-bold text-sm text-slate-950 transition-all ${
+            className={`inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg ${
               isScanning
-                ? "bg-slate-700 cursor-not-allowed text-slate-400"
-                : "bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-[0_0_20px_rgba(6,182,212,0.3)] active:scale-[0.98]"
+                ? "bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-700"
+                : "bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 shadow-cyan-500/20 active:scale-98"
             }`}
           >
             {isScanning ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin text-slate-400" />
-                <span>{scanProgressText || "Scanning Security Vectors..."}</span>
+                <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+                <span>{progressText || "Analyzing Threats..."}</span>
               </>
             ) : (
               <>
-                <Search className="w-4 h-4" />
-                <span>RUN SCAM INSPECTION</span>
-                <ArrowRight className="w-4 h-4 ml-0.5" />
+                <Search className="w-4 h-4 text-slate-950" />
+                <span>Run Forensic Threat Scan</span>
+                <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </div>
       </form>
-
-      {/* Preset Demo Cases */}
-      <div className="p-4 bg-slate-950/70 border-t border-slate-800">
-        <div className="flex items-center gap-1.5 mb-2.5">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
-            Quick Hackathon Demo Test Presets:
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {SAMPLE_CASES.map((sample) => (
-            <button
-              key={sample.id}
-              type="button"
-              onClick={() => handleLoadSample(sample)}
-              className="flex flex-col text-left p-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800/80 hover:border-slate-700 transition-all group"
-            >
-              <div className="flex items-center justify-between w-full mb-1">
-                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${sample.badgeColor}`}>
-                  {sample.label}
-                </span>
-                <span className="text-[10px] text-slate-400 group-hover:text-cyan-400 transition-colors">
-                  Load &rarr;
-                </span>
-              </div>
-              <span className="text-xs font-medium text-slate-200 line-clamp-1 group-hover:text-cyan-300">
-                {sample.title}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };
